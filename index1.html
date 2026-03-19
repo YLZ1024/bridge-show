@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>桥梁数字孪生实时监测系统</title>
+    <!-- 引入 3D 模型组件 -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #00050a; color: #fff; font-family: "Microsoft YaHei", sans-serif; overflow: hidden; }
+        
+        /* 背景全屏 3D 视图 */
+        model-viewer { width: 100vw; height: 100vh; background: radial-gradient(#001f3f, #00050a); }
+
+        /* 左侧科技感面板 */
+        .dashboard {
+            position: absolute; top: 20px; left: 20px; width: 320px;
+            background: rgba(0, 20, 40, 0.85); border: 2px solid #00d2ff;
+            padding: 20px; border-radius: 12px; box-shadow: 0 0 30px rgba(0,210,255,0.4);
+            backdrop-filter: blur(5px);
+        }
+
+        h1 { margin: 0 0 20px 0; font-size: 20px; color: #00d2ff; text-align: center; letter-spacing: 2px; border-bottom: 2px solid #00d2ff; padding-bottom: 10px; }
+
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .data-card { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; border-left: 3px solid #00ffcc; }
+        .label { font-size: 12px; color: #8bc3ff; display: block; margin-bottom: 5px; }
+        .value { font-size: 18px; font-weight: bold; color: #00ffcc; }
+        .unit { font-size: 10px; color: #666; margin-left: 4px; }
+
+        /* 底部状态 */
+        .status-bar { margin-top: 20px; font-size: 12px; color: #556; border-top: 1px solid #223; padding-top: 10px; }
+        .online-dot { width: 8px; height: 8px; background: #0f0; border-radius: 50%; display: inline-block; margin-right: 5px; box-shadow: 0 0 10px #0f0; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D 模型展示（引用你之前的 GitHub 地址） -->
+    <model-viewer 
+        src="https://ylz1024.github.io/bridge-show/bridge.glb" 
+        camera-controls 
+        auto-rotate 
+        shadow-intensity="1" 
+        exposure="1"
+        camera-orbit="45deg 75deg 10m">
+    </model-viewer>
+
+    <!-- 实时看板 UI -->
+    <div class="dashboard">
+        <h1>桥梁实时数据看板</h1>
+        
+        <div class="data-grid">
+            <!-- 根据你物模型中的标识符设置 ID -->
+            <div class="data-card"><span class="label">主梁位移</span><span id="distance" class="value">--</span><span class="unit">cm</span></div>
+            <div class="data-card"><span class="label">环境温度</span><span id="temp" class="value">--</span><span class="unit">℃</span></div>
+            <div class="data-card"><span class="label">结构温度</span><span id="struct_temp" class="value">--</span><span class="unit">℃</span></div>
+            <div class="data-card"><span class="label">压力值</span><span id="weight" class="value">--</span><span class="unit">N</span></div>
+            <div class="data-card"><span class="label">倾角 Pitch</span><span id="pitch" class="value">--</span><span class="unit">°</span></div>
+            <div class="data-card"><span class="label">横滚 Roll</span><span id="roll" class="value">--</span><span class="unit">°</span></div>
+            <div class="data-card"><span class="label">湿度</span><span id="humi" class="value">--</span><span class="unit">%</span></div>
+            <div class="data-card"><span class="label">气压</span><span id="pressure" class="value">--</span><span class="unit">hPa</span></div>
+        </div>
+
+        <div class="status-bar">
+            <span class="online-dot"></span> 设备状态: ESP8266 在线<br>
+            更新时间: <span id="update-time">等待获取...</span>
+        </div>
+    </div>
+
+    <script>
+        // 配置信息
+        const PRODUCT_ID = 'e39XlYUdcE';
+        const DEVICE_NAME = 'ESP8266';
+        // 刚才为你生成的 Token
+        const TOKEN = 'version=2018-10-31&res=products%2Fe39XlYUdcE&et=2000000000&method=sha1&sign=mF4%2F3xI6XInGofQ00H7h5LREK38%3D';
+
+        async function fetchOneNETData() {
+            // OneNET Studio 查询最新属性值的 API
+            const url = `https://iot-api.heclouds.com/thingmodel/query-device-property?product_id=${PRODUCT_ID}&device_name=${DEVICE_NAME}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'authorization': TOKEN }
+                });
+
+                const json = await response.json();
+                
+                if (json.code === 0 && json.data) {
+                    // 循环 API 返回的数组，把每个值填入对应的 HTML ID 中
+                    json.data.forEach(item => {
+                        const el = document.getElementById(item.identifier);
+                        if (el) {
+                            // 格式化数值：保留一位小数
+                            const val = typeof item.value === 'number' ? item.value.toFixed(1) : item.value;
+                            el.innerText = val;
+                        }
+                    });
+                    document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
+                    console.log("数据更新成功");
+                } else {
+                    console.error("API 返回错误:", json.msg);
+                }
+            } catch (err) {
+                console.error("网络请求失败，请确认是否开启了 CORS 跨域插件", err);
+            }
+        }
+
+        // 没 3 秒拉取一次最新数据
+        setInterval(fetchOneNETData, 3000);
+        fetchOneNETData(); // 初始加载一次
+    </script>
+</body>
+</html>
