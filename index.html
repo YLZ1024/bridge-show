@@ -51,7 +51,7 @@
         <div class="data-grid">
             <!-- 根据你物模型中的标识符设置 ID -->
             <div class="data-card"><span class="label">主梁位移</span><span id="distance" class="value">--</span><span class="unit">cm</span></div>
-            <div class="data-card"><span class="label">环境温度</span><span id="temp" class="value">--</span><span class="unit">℃</span></div>
+            <div class="data-card"><span class="label">环境温度</span><span id="etemp" class="value">--</span><span class="unit">℃</span></div>
             <div class="data-card"><span class="label">结构温度</span><span id="struct_temp" class="value">--</span><span class="unit">℃</span></div>
             <div class="data-card"><span class="label">压力值</span><span id="weight" class="value">--</span><span class="unit">N</span></div>
             <div class="data-card"><span class="label">倾角 Pitch</span><span id="pitch" class="value">--</span><span class="unit">°</span></div>
@@ -71,7 +71,7 @@
         const PRODUCT_ID = 'e39XlYUdcE';
         const DEVICE_NAME = 'ESP8266';
         // 刚才为你生成的 Token
-        const TOKEN = 'version=2018-10-31&res=products%2Fe39XlYUdcE&et=2000000000&method=sha1&sign=mF4%2F3xI6XInGofQ00H7h5LREK38%3D';
+        const TOKEN = 'version=2018-10-31&res=products%2Fe39XlYUdcE%2Fdevices%2FESP8266&et=1798704328&method=md5&sign=1Rq3Du1iHq7NrHnxUIlGcQ%3D%3D';
 
         async function fetchOneNETData() {
             // OneNET Studio 查询最新属性值的 API
