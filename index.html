@@ -53,20 +53,20 @@
     exposure="1"
     camera-orbit="45deg 75deg 10m">
 
-    <!-- 热点1：梁端姿态 -->
-    <div class="sensor-tag" slot="hotspot-1" data-position="0m 0m 45m" data-normal="0m 1m 0m">
-        梁端姿态
-    </div>
+   <!-- 热点1：梁端姿态 -->
+<div id="tag-pose" class="sensor-tag" slot="hotspot-1" data-position="0m 0m 45m" data-normal="0m 1m 0m">
+    梁端姿态: Pitch --
+</div>
 
-    <!-- 热点2：跨中监测 -->
-    <div class="sensor-tag" slot="hotspot-2" data-position="60m 0m 39m" data-normal="0m 1m 0m">
-        跨中监测
-    </div>
+<!-- 热点2：跨中监测 -->
+<div id="tag-mid" class="sensor-tag" slot="hotspot-2" data-position="60m 0m 39m" data-normal="0m 1m 0m">
+    跨中监测: 位移 --
+</div>
 
-    <!-- 热点3：支座监测 -->
-    <div class="sensor-tag" slot="hotspot-3" data-position="0m 0m 25.7m" data-normal="0m 1m 0m">
-        支座监测
-    </div>
+<!-- 热点3：支座监测 -->
+<div id="tag-support" class="sensor-tag" slot="hotspot-3" data-position="0m 0m 25.7m" data-normal="0m 1m 0m">
+    支座监测: 压力 --
+</div>
 
 </model-viewer>
 
@@ -92,48 +92,79 @@
         </div>
     </div>
 
-    <script>
-        // 配置信息
-        const PRODUCT_ID = 'e39XlYUdcE';
-        const DEVICE_NAME = 'ESP8266';
-        // 刚才为你生成的 Token
-        const TOKEN = 'version=2018-10-31&res=products%2Fe39XlYUdcE%2Fdevices%2FESP8266&et=1798704328&method=md5&sign=1Rq3Du1iHq7NrHnxUIlGcQ%3D%3D';
+<script>
+    // 配置信息
+    const PRODUCT_ID = 'e39XlYUdcE';
+    const DEVICE_NAME = 'ESP8266';
+    const TOKEN = 'version=2018-10-31&res=products%2Fe39XlYUdcE%2Fdevices%2FESP8266&et=1798704328&method=md5&sign=1Rq3Du1iHq7NrHnxUIlGcQ%3D%3D';
 
-        async function fetchOneNETData() {
-            // OneNET Studio 查询最新属性值的 API
-            const url = `https://iot-api.heclouds.com/thingmodel/query-device-property?product_id=${PRODUCT_ID}&device_name=${DEVICE_NAME}`;
+    function updateHotspots(displacement, pitch, pressureValue) {
+        const tagPose = document.getElementById("tag-pose");
+        const tagMid = document.getElementById("tag-mid");
+        const tagSupport = document.getElementById("tag-support");
 
-            try {
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: { 'authorization': TOKEN }
+        if (tagPose && !isNaN(pitch)) {
+            tagPose.textContent = `梁端姿态: Pitch ${pitch.toFixed(1)}°`;
+        }
+        if (tagMid && !isNaN(displacement)) {
+            tagMid.textContent = `跨中监测: 位移 ${displacement.toFixed(1)} cm`;
+        }
+        if (tagSupport && !isNaN(pressureValue)) {
+            tagSupport.textContent = `支座监测: 压力 ${pressureValue.toFixed(1)} N`;
+        }
+    }
+
+    async function fetchOneNETData() {
+        const url = `https://iot-api.heclouds.com/thingmodel/query-device-property?product_id=${PRODUCT_ID}&device_name=${DEVICE_NAME}`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'authorization': TOKEN }
+            });
+
+            const json = await response.json();
+
+            if (json.code === 0 && json.data) {
+                let displacement = NaN;   // 主梁位移 distance
+                let pitchValue = NaN;     // 倾角 pitch
+                let weightValue = NaN;    // 压力值 weight
+
+                json.data.forEach(item => {
+                    const el = document.getElementById(item.identifier);
+                    if (el) {
+                        const val = typeof item.value === 'number' ? item.value.toFixed(1) : item.value;
+                        el.innerText = val;
+                    }
+
+                    // 把热点需要的数据提取出来
+                    if (item.identifier === "distance") {
+                        displacement = Number(item.value);
+                    }
+                    if (item.identifier === "pitch") {
+                        pitchValue = Number(item.value);
+                    }
+                    if (item.identifier === "weight") {
+                        weightValue = Number(item.value);
+                    }
                 });
 
-                const json = await response.json();
-                
-                if (json.code === 0 && json.data) {
-                    // 循环 API 返回的数组，把每个值填入对应的 HTML ID 中
-                    json.data.forEach(item => {
-                        const el = document.getElementById(item.identifier);
-                        if (el) {
-                            // 格式化数值：保留一位小数
-                            const val = typeof item.value === 'number' ? item.value.toFixed(1) : item.value;
-                            el.innerText = val;
-                        }
-                    });
-                    document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
-                    console.log("数据更新成功");
-                } else {
-                    console.error("API 返回错误:", json.msg);
-                }
-            } catch (err) {
-                console.error("网络请求失败，请确认是否开启了 CORS 跨域插件", err);
-            }
-        }
+                // 在这里调用热点更新函数
+                updateHotspots(displacement, pitchValue, weightValue);
 
-        // 没 3 秒拉取一次最新数据
-        setInterval(fetchOneNETData, 3000);
-        fetchOneNETData(); // 初始加载一次
-    </script>
+                document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
+                console.log("数据更新成功");
+            } else {
+                console.error("API 返回错误:", json.msg);
+            }
+        } catch (err) {
+            console.error("网络请求失败，请确认是否开启了 CORS 跨域插件", err);
+        }
+    }
+
+    // 每 3 秒拉取一次最新数据
+    setInterval(fetchOneNETData, 3000);
+    fetchOneNETData();
+</script>
 </body>
 </html>
