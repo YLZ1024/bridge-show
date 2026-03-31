@@ -76,7 +76,7 @@
         
         <div class="data-grid">
             <!-- 根据你物模型中的标识符设置 ID -->
-            <div class="data-card"><span class="label">主梁位移</span><span id="distance" class="value">--</span><span class="unit">cm</span></div>
+            <div class="data-card"><span class="label">主梁位移</span><span id="distance" class="value">--</span><span class="unit">mm</span></div>
             <div class="data-card"><span class="label">环境温度</span><span id="temp" class="value">--</span><span class="unit">℃</span></div>
             <div class="data-card"><span class="label">结构温度</span><span id="struct_temp" class="value">--</span><span class="unit">℃</span></div>
             <div class="data-card"><span class="label">重量</span><span id="weight" class="value">--</span><span class="unit">g</span></div>
@@ -107,7 +107,7 @@
             tagPose.textContent = `梁端姿态: Pitch ${pitch.toFixed(1)}°`;
         }
         if (tagMid && !isNaN(displacement)) {
-            tagMid.textContent = `跨中监测: 位移 ${displacement.toFixed(1)} cm`;
+            tagMid.textContent = `跨中监测: 位移 ${displacement.toFixed(1)} mm`;
         }
         if (tagSupport && !isNaN(pressureValue)) {
             tagSupport.textContent = `支座监测: 压力 ${pressureValue.toFixed(1)} g`;
