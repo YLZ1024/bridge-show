@@ -160,8 +160,8 @@
         const MODEL_RED            = [1.0,  0.1,  0.1,  1.0]; // 危险红
 
         // 🔥🔥🔥 【极其重要】：如果在 F12 发现材质名不对，请修改下面这两个词！ 🔥🔥🔥
-        const NAME_OF_DECK = "deck";       // 修改为查到的桥面材质名，例如 "Material.001"
-        const NAME_OF_SUPPORT = "support"; // 修改为查到的支座材质名，例如 "Material.002"
+        const NAME_OF_DECK = "混凝土";       // 匹配 "混凝土, 现场浇注灰色" (这应该是你的桥面)
+        const NAME_OF_SUPPORT = "Material";  // 匹配 "Material" (这大概率是你的支座，如果不对换成 "default" 试试)
 
         // 每次刷新先复原所有状态
         applyColor("tag-pose", TAG_GREEN);
