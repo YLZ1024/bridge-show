@@ -97,49 +97,37 @@
     </div>
 
 <script>
-    // 配置信息
+    // 配置信息 (与你的网关保持一致)
     const PRODUCT_ID = 'e39XlYUdcE';
     const DEVICE_NAME = 'ESP8266';
     const TOKEN = 'version=2018-10-31&res=products%2Fe39XlYUdcE%2Fdevices%2FESP8266&et=1798704328&method=md5&sign=1Rq3Du1iHq7NrHnxUIlGcQ%3D%3D';
 
-    function updateHotspots(displacement, pitch, pressureValue) {
-        const tagPose = document.getElementById("tag-pose");
-        const tagMid = document.getElementById("tag-mid");
-        const tagSupport = document.getElementById("tag-support");
-
-        if (tagPose && !isNaN(pitch)) {
-            tagPose.textContent = `梁端姿态: Pitch ${pitch.toFixed(1)}°`;
-        }
-        if (tagMid && !isNaN(displacement)) {
-            tagMid.textContent = `跨中监测: Dist ${displacement.toFixed(1)} mm`;
-        }
-        if (tagSupport && !isNaN(pressureValue)) {
-            tagSupport.textContent = `支座监测: Weig ${pressureValue.toFixed(1)} g`;
-        }
+    // 💡 防崩溃文本更新函数
+    function safeUpdateText(elementId, text) {
+        const el = document.getElementById(elementId);
+        if (el) el.textContent = text;
     }
 
-    // 💡 核心功能：根据 C 语言专家系统下发的代码，动态更新 3D 模型颜色
-    function updateTwinColors(disease, sensor, target, level) {
-        const tagPose = document.getElementById("tag-pose");
-        const tagMid = document.getElementById("tag-mid");
-        const tagSupport = document.getElementById("tag-support");
+    // 💡 防崩溃颜色应用函数
+    function applyColor(elementId, colorObj) {
+        const el = document.getElementById(elementId);
+        if (!el) return; // 如果网页中找不到这个标签，直接跳过，防止代码崩溃！
+        el.style.backgroundColor = colorObj.bg;
+        el.style.borderColor = colorObj.border;
+        el.style.boxShadow = `0 0 15px ${colorObj.shadow}`;
+    }
 
+    // 🟢🟡🔴 核心功能：动态更新 3D 模型颜色
+    function updateTwinColors(disease, sensor, target, level) {
         // 颜色库定义
         const COLOR_GREEN  = { bg: 'rgba(0, 100, 0, 0.8)', border: '#00ff00', shadow: 'rgba(0,255,0,0.5)' }; // 正常
         const COLOR_YELLOW = { bg: 'rgba(200, 150, 0, 0.8)', border: '#ffcc00', shadow: 'rgba(255,200,0,0.5)' }; // 预警
         const COLOR_RED    = { bg: 'rgba(200, 0, 0, 0.8)', border: '#ff0000', shadow: 'rgba(255,0,0,0.5)' }; // 危险
 
-        // 辅助函数：应用颜色
-        function applyColor(element, colorObj) {
-            element.style.backgroundColor = colorObj.bg;
-            element.style.borderColor = colorObj.border;
-            element.style.boxShadow = `0 0 15px ${colorObj.shadow}`;
-        }
-
         // 1. 默认先把所有人设为绿色 (健康状态)
-        applyColor(tagPose, COLOR_GREEN);
-        applyColor(tagMid, COLOR_GREEN);
-        applyColor(tagSupport, COLOR_GREEN);
+        applyColor("tag-pose", COLOR_GREEN);
+        applyColor("tag-mid", COLOR_GREEN);
+        applyColor("tag-support", COLOR_GREEN);
 
         // 如果完全健康，直接返回
         if (disease === 0 && level <= 1) return;
@@ -148,20 +136,18 @@
         let alertColor = (level >= 3) ? COLOR_RED : COLOR_YELLOW;
 
         // 2. 解析 STM32 下发的诊断逻辑
-
-        // 逻辑 A: 传感器孤岛识别 (ERR_SENSOR_ISLAND = 1) -> 只让特定传感器发黄/红
         if (disease === 1) {
-            if (sensor === 1) applyColor(tagMid, alertColor);      // SENSOR_DIST
-            if (sensor === 2) applyColor(tagPose, alertColor);     // SENSOR_PITCH
-            if (sensor === 3) applyColor(tagSupport, alertColor);  // SENSOR_WEIGHT
-        }
-        // 逻辑 B: 结构真实病害 -> 让对应的建筑部位发黄/红
-        else {
-            if (disease === 2 || target === 2) { // LOAD_OVERWEIGHT / TARGET_DECK
-                applyColor(tagMid, alertColor); // 桥面超载/下挠报警
+            // 逻辑 A: 传感器孤岛
+            if (sensor === 1) applyColor("tag-mid", alertColor);      // SENSOR_DIST
+            if (sensor === 2) applyColor("tag-pose", alertColor);     // SENSOR_PITCH
+            if (sensor === 3) applyColor("tag-support", alertColor);  // SENSOR_WEIGHT
+        } else {
+            // 逻辑 B: 结构真实病害
+            if (disease === 2 || target === 2) {
+                applyColor("tag-mid", alertColor); // 桥面超载/下挠报警 -> 中间发红
             }
-            if (disease === 3 || target === 3) { // SUPPORT_GAP / TARGET_SUPPORT
-                applyColor(tagSupport, alertColor); // 支座脱空报警
+            if (disease === 3 || target === 3) {
+                applyColor("tag-support", alertColor); // 支座脱空报警 -> 支座发红
             }
         }
     }
@@ -174,14 +160,12 @@
 
             if (json.code === 0 && json.data) {
                 // 存储传感器数值
-                let displacement = NaN;
-                let pitchValue = NaN;
-                let weightValue = NaN;
-
+                let displacement = NaN, pitchValue = NaN, weightValue = NaN;
                 // 存储专家系统状态值
                 let disease = 0, sensor = 0, target = 0, level = 0;
 
                 json.data.forEach(item => {
+                    // 更新左侧看板
                     const el = document.getElementById(item.identifier);
                     if (el) {
                         const val = typeof item.value === 'number' ? item.value.toFixed(1) : item.value;
@@ -193,20 +177,27 @@
                     if (item.identifier === "pitch") pitchValue = Number(item.value);
                     if (item.identifier === "weight") weightValue = Number(item.value);
 
-                    // 提取 STM32 计算出的诊断结果 (对应 C 语言的枚举值)
+                    // 提取 STM32 计算出的诊断结果
                     if (item.identifier === "disease") disease = Number(item.value);
                     if (item.identifier === "sensor") sensor = Number(item.value);
                     if (item.identifier === "target") target = Number(item.value);
                     if (item.identifier === "level") level = Number(item.value);
                 });
 
-                // 更新 3D 热点数值文字
-                updateHotspotText(displacement, pitchValue, weightValue);
+                // 打印调试信息 (你可以按 F12 在浏览器控制台看到)
+                console.log(`收到诊断结果 -> 病害:${disease}, 目标:${target}, 等级:${level}`);
 
-                // 🟢🟡🔴 更新 3D 热点颜色联动
+                // 更新 3D 热点数值文字 (防崩溃版)
+                if (!isNaN(pitchValue))   safeUpdateText("tag-pose", `梁端姿态: Pitch ${pitchValue.toFixed(1)}°`);
+                if (!isNaN(displacement)) safeUpdateText("tag-mid", `跨中监测: Dist ${displacement.toFixed(1)} mm`);
+                if (!isNaN(weightValue))  safeUpdateText("tag-support", `支座监测: Weig ${weightValue.toFixed(1)} g`);
+
+                // 🟢🟡🔴 更新 3D 热点颜色联动 (防崩溃版)
                 updateTwinColors(disease, sensor, target, level);
 
-                document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
+                // 更新时间戳
+                const timeEl = document.getElementById('update-time');
+                if (timeEl) timeEl.innerText = new Date().toLocaleTimeString();
             }
         } catch (err) {
             console.error("网络请求失败", err);
@@ -217,7 +208,5 @@
     setInterval(fetchOneNETData, 2000);
     fetchOneNETData();
 </script>
-</body>
-</html>
 </body>
 </html>
