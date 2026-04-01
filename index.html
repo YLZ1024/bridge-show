@@ -6,8 +6,8 @@
     <!-- 引入 3D 模型组件 -->
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     <style>
-        body { margin: 0; background-color: #00050a; color: #fff; font-family: "Microsoft YaHei", sans-serif; overflow: hidden; }
-        
+         body { margin: 0; background-color: #00050a; color: #fff; font-family: "Microsoft YaHei", sans-serif; overflow: hidden; }
+
         /* 背景全屏 3D 视图 */
         model-viewer { width: 100vw; height: 100vh; background: radial-gradient(#001f3f, #00050a); }
 
@@ -30,15 +30,18 @@
         /* 底部状态 */
         .status-bar { margin-top: 20px; font-size: 12px; color: #556; border-top: 1px solid #223; padding-top: 10px; }
         .online-dot { width: 8px; height: 8px; background: #0f0; border-radius: 50%; display: inline-block; margin-right: 5px; box-shadow: 0 0 10px #0f0; }
+         /* 💡 修改：3D热点标签的基础样式 (加入过渡动画) */
         .sensor-tag {
-                      background: rgba(0, 20, 40, 0.9);
-                      color: #00ffcc;
-                      border: 1px solid #00d2ff;
-                      border-radius: 8px;
-                      padding: 6px 10px;
-                      font-size: 11px;
-                      box-shadow: 0 0 10px rgba(0,210,255,0.5);
-                      white-space: nowrap;
+            background: rgba(0, 100, 0, 0.8); /* 默认绿色背景 */
+            color: #ffffff;
+            border: 2px solid #00ff00; /* 默认绿色边框 */
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(0,255,0,0.5);
+            white-space: nowrap;
+            transition: all 0.5s ease-in-out; /* 颜色渐变动画 */
                }
     </style>
 </head>
@@ -60,20 +63,20 @@
 
 <!-- 热点2：跨中监测 -->
 <div id="tag-mid" class="sensor-tag" slot="hotspot-2" data-position="60m 0m 39m" data-normal="0m 1m 0m">
-    跨中监测: 位移 --
+    跨中监测: Dist --
 </div>
 
 <!-- 热点3：支座监测 -->
 <div id="tag-support" class="sensor-tag" slot="hotspot-3" data-position="0m 0m 25.7m" data-normal="0m 1m 0m">
-    支座监测: 压力 --
+    支座监测: Weig --
 </div>
-
+     
 </model-viewer>
 
     <!-- 实时看板 UI -->
     <div class="dashboard">
         <h1>桥梁实时数据看板</h1>
-        
+
         <div class="data-grid">
             <!-- 根据你物模型中的标识符设置 ID -->
             <div class="data-card"><span class="label">主梁位移</span><span id="distance" class="value">--</span><span class="unit">mm</span></div>
@@ -81,9 +84,10 @@
             <div class="data-card"><span class="label">结构温度</span><span id="struct_temp" class="value">--</span><span class="unit">℃</span></div>
             <div class="data-card"><span class="label">重量</span><span id="weight" class="value">--</span><span class="unit">g</span></div>
             <div class="data-card"><span class="label">倾角 Pitch</span><span id="pitch" class="value">--</span><span class="unit">°</span></div>
-            <div class="data-card"><span class="label">横滚 Roll</span><span id="roll" class="value">--</span><span class="unit">°</span></div>
             <div class="data-card"><span class="label">湿度</span><span id="humi" class="value">--</span><span class="unit">%</span></div>
             <div class="data-card"><span class="label">气压</span><span id="pressure" class="value">--</span><span class="unit">hPa</span></div>
+            <div class="data-card"><span class="label">桥梁评分 BCI</span><span id="score" class="value">--</span><span class="unit">分</span></div>
+            <div class="data-card"><span class="label">桥梁等级</span><span id="class" class="value">--</span><span class="unit">类</span></div>
         </div>
 
         <div class="status-bar">
@@ -107,28 +111,75 @@
             tagPose.textContent = `梁端姿态: Pitch ${pitch.toFixed(1)}°`;
         }
         if (tagMid && !isNaN(displacement)) {
-            tagMid.textContent = `跨中监测: 位移 ${displacement.toFixed(1)} mm`;
+            tagMid.textContent = `跨中监测: Dist ${displacement.toFixed(1)} mm`;
         }
         if (tagSupport && !isNaN(pressureValue)) {
-            tagSupport.textContent = `支座监测: 压力 ${pressureValue.toFixed(1)} g`;
+            tagSupport.textContent = `支座监测: Weig ${pressureValue.toFixed(1)} g`;
+        }
+    }
+
+    // 💡 核心功能：根据 C 语言专家系统下发的代码，动态更新 3D 模型颜色
+    function updateTwinColors(disease, sensor, target, level) {
+        const tagPose = document.getElementById("tag-pose");
+        const tagMid = document.getElementById("tag-mid");
+        const tagSupport = document.getElementById("tag-support");
+
+        // 颜色库定义
+        const COLOR_GREEN  = { bg: 'rgba(0, 100, 0, 0.8)', border: '#00ff00', shadow: 'rgba(0,255,0,0.5)' }; // 正常
+        const COLOR_YELLOW = { bg: 'rgba(200, 150, 0, 0.8)', border: '#ffcc00', shadow: 'rgba(255,200,0,0.5)' }; // 预警
+        const COLOR_RED    = { bg: 'rgba(200, 0, 0, 0.8)', border: '#ff0000', shadow: 'rgba(255,0,0,0.5)' }; // 危险
+
+        // 辅助函数：应用颜色
+        function applyColor(element, colorObj) {
+            element.style.backgroundColor = colorObj.bg;
+            element.style.borderColor = colorObj.border;
+            element.style.boxShadow = `0 0 15px ${colorObj.shadow}`;
+        }
+
+        // 1. 默认先把所有人设为绿色 (健康状态)
+        applyColor(tagPose, COLOR_GREEN);
+        applyColor(tagMid, COLOR_GREEN);
+        applyColor(tagSupport, COLOR_GREEN);
+
+        // 如果完全健康，直接返回
+        if (disease === 0 && level <= 1) return;
+
+        // 确定当前报警颜色 (Level 2: 黄色, Level 3: 红色)
+        let alertColor = (level >= 3) ? COLOR_RED : COLOR_YELLOW;
+
+        // 2. 解析 STM32 下发的诊断逻辑
+
+        // 逻辑 A: 传感器孤岛识别 (ERR_SENSOR_ISLAND = 1) -> 只让特定传感器发黄/红
+        if (disease === 1) {
+            if (sensor === 1) applyColor(tagMid, alertColor);      // SENSOR_DIST
+            if (sensor === 2) applyColor(tagPose, alertColor);     // SENSOR_PITCH
+            if (sensor === 3) applyColor(tagSupport, alertColor);  // SENSOR_WEIGHT
+        }
+        // 逻辑 B: 结构真实病害 -> 让对应的建筑部位发黄/红
+        else {
+            if (disease === 2 || target === 2) { // LOAD_OVERWEIGHT / TARGET_DECK
+                applyColor(tagMid, alertColor); // 桥面超载/下挠报警
+            }
+            if (disease === 3 || target === 3) { // SUPPORT_GAP / TARGET_SUPPORT
+                applyColor(tagSupport, alertColor); // 支座脱空报警
+            }
         }
     }
 
     async function fetchOneNETData() {
         const url = `https://iot-api.heclouds.com/thingmodel/query-device-property?product_id=${PRODUCT_ID}&device_name=${DEVICE_NAME}`;
-
         try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: { 'authorization': TOKEN }
-            });
-
+            const response = await fetch(url, { method: 'GET', headers: { 'authorization': TOKEN } });
             const json = await response.json();
 
             if (json.code === 0 && json.data) {
-                let displacement = NaN;   // 主梁位移 distance
-                let pitchValue = NaN;     // 倾角 pitch
-                let weightValue = NaN;    // 压力值 weight
+                // 存储传感器数值
+                let displacement = NaN;
+                let pitchValue = NaN;
+                let weightValue = NaN;
+
+                // 存储专家系统状态值
+                let disease = 0, sensor = 0, target = 0, level = 0;
 
                 json.data.forEach(item => {
                     const el = document.getElementById(item.identifier);
@@ -137,34 +188,36 @@
                         el.innerText = val;
                     }
 
-                    // 把热点需要的数据提取出来
-                    if (item.identifier === "distance") {
-                        displacement = Number(item.value);
-                    }
-                    if (item.identifier === "pitch") {
-                        pitchValue = Number(item.value);
-                    }
-                    if (item.identifier === "weight") {
-                        weightValue = Number(item.value);
-                    }
+                    // 提取物理量
+                    if (item.identifier === "distance") displacement = Number(item.value);
+                    if (item.identifier === "pitch") pitchValue = Number(item.value);
+                    if (item.identifier === "weight") weightValue = Number(item.value);
+
+                    // 提取 STM32 计算出的诊断结果 (对应 C 语言的枚举值)
+                    if (item.identifier === "disease") disease = Number(item.value);
+                    if (item.identifier === "sensor") sensor = Number(item.value);
+                    if (item.identifier === "target") target = Number(item.value);
+                    if (item.identifier === "level") level = Number(item.value);
                 });
 
-                // 在这里调用热点更新函数
-                updateHotspots(displacement, pitchValue, weightValue);
+                // 更新 3D 热点数值文字
+                updateHotspotText(displacement, pitchValue, weightValue);
+
+                // 🟢🟡🔴 更新 3D 热点颜色联动
+                updateTwinColors(disease, sensor, target, level);
 
                 document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
-                console.log("数据更新成功");
-            } else {
-                console.error("API 返回错误:", json.msg);
             }
         } catch (err) {
-            console.error("网络请求失败，请确认是否开启了 CORS 跨域插件", err);
+            console.error("网络请求失败", err);
         }
     }
 
-    // 每 3 秒拉取一次最新数据
-    setInterval(fetchOneNETData, 3000);
+    // 每 2 秒拉取一次最新数据
+    setInterval(fetchOneNETData, 2000);
     fetchOneNETData();
 </script>
+</body>
+</html>
 </body>
 </html>
